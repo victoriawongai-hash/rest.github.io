@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rest 腦電波復元計時器 - 4Rs 記憶寶庫</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti Light -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'Fredoka', 'sans-serif'],
+                        display: ['Fredoka', '"Noto Sans TC"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+            background-color: #0b0726;
+        }
+
+        /* Cosmic Aurora Background Mesh */
+        .aurora-bg {
+            background: linear-gradient(135deg, #07041a 0%, #120938 35%, #0b1a3a 70%, #06222b 100%);
+            position: relative;
+        }
+
+        .aurora-glow-1 {
+            position: absolute;
+            top: -10%; left: -10%;
+            width: 120%; height: 60%;
+            background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.22) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(50px);
+            animation: pulseGlow 12s ease-in-out infinite alternate;
+        }
+
+        .aurora-glow-2 {
+            position: absolute;
+            bottom: -10%; right: -10%;
+            width: 120%; height: 60%;
+            background: radial-gradient(ellipse at center, rgba(236, 72, 153, 0.2) 0%, rgba(0,0,0,0) 70%);
+            filter: blur(50px);
+            animation: pulseGlow 15s ease-in-out 2s infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(1) translate(0, 0); opacity: 0.6; }
+            100% { transform: scale(1.15) translate(3%, 5%); opacity: 0.9; }
+        }
+
+        /* Glassmorphism Cards */
+        .glass-panel {
+            background: rgba(18, 14, 46, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        .glass-modal {
+            background: rgba(26, 18, 6, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 0 50px rgba(255, 215, 0, 0.35);
+        }
+
+        /* Breathing Pulse Ring */
+        .breath-pulse {
+            animation: breathPulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes breathPulse {
+            0%, 100% { transform: scale(1); opacity: 0.3; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+            50% { transform: scale(1.22); opacity: 0.85; box-shadow: 0 0 45px rgba(255, 215, 0, 0.85); }
+        }
+
+        /* Orbit Ring Rotation */
+        .orbit-spin {
+            animation: orbitRotate 25s linear infinite;
+        }
+
+        @keyframes orbitRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .counter-spin {
+            animation: counterRotate 25s linear infinite;
+        }
+
+        @keyframes counterRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(-360deg); }
+        }
+
+        /* Neon Text Glow */
+        .gold-glow {
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .float-bob {
+            animation: floatBob 3.5s ease-in-out infinite;
+        }
+
+        @keyframes floatBob {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Custom Scrollbar for Drawer */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.4); border-radius: 4px; }
+    </style>
+</head>
+<body class="aurora-bg text-white h-screen w-screen flex flex-col justify-between p-2 sm:p-3 relative overflow-hidden select-none">
+
+    <!-- Background Canvas for Floating Stars -->
+    <canvas id="starsCanvas" class="absolute inset-0 pointer-events-none z-0"></canvas>
+    
+    <!-- Background Auroras -->
+    <div class="aurora-glow-1 pointer-events-none"></div>
+    <div class="aurora-glow-2 pointer-events-none"></div>
+
+    <!-- TOP HEADER BAR (Compact Viewport Fit) -->
+    <header class="relative z-10 w-full max-w-4xl mx-auto flex-none">
+        <div class="glass-panel rounded-xl px-3 py-2 flex items-center justify-between border-amber-400/30 gap-2">
+            <!-- Left School Info -->
+            <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 to-indigo-600 p-0.5 shadow-md flex-none">
+                    <div class="w-full h-full bg-slate-950 rounded-full flex items-center justify-center text-sm">🏫</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-amber-300 font-bold leading-tight">深水埔街坊福利會小學</div>
+                    <div class="text-xs sm:text-sm font-black text-white gold-glow leading-tight">4Rs 靜心休息站：休息能量充電中</div>
+                </div>
+            </div>
+
+            <!-- Right School Passport Title -->
+            <div class="hidden sm:flex flex-col items-end">
+                <span class="bg-amber-400/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-400/40">
+                    我做得到 Passport (P.2-P.6)
+                </span>
+                <span class="text-[11px] font-extrabold text-pink-300 mt-0.5">「記憶定格，愛不消逝！」</span>
+            </div>
+        </div>
+
+        <!-- Subtitle Prompt Banner -->
+        <div class="text-center mt-1 text-[11px] sm:text-xs text-indigo-200 font-medium">
+            請全組同學坐好，保持安靜，一起進行 30 秒靜心慢讀與呼吸。
+        </div>
+    </header>
+
+    <!-- MAIN INTERACTIVE CENTER VIEWPORT -->
+    <main class="relative z-10 w-full max-w-4xl mx-auto flex-1 flex items-center justify-between px-2 sm:px-6 my-1">
+
+        <!-- LEFT MASCOT (Girl Student with Core Orb) -->
+        <div class="flex-1 flex flex-col items-center justify-center max-w-[120px] sm:max-w-[160px] float-bob hidden xs:flex">
+            <div class="w-24 h-24 sm:w-32 sm:h-32 relative">
+                <svg class="w-full h-full drop-shadow-[0_8px_16px_rgba(56,189,248,0.4)]" viewBox="0 0 200 200" fill="none">
+                    <path d="M60 90 C 50 140, 40 160, 30 180 M 140 90 C 150 140, 160 160, 170 180" stroke="#2D1500" stroke-width="18" stroke-linecap="round"/>
+                    <circle cx="100" cy="85" r="40" fill="#FFE0BD"/>
+                    <path d="M60 70 C 80 50, 120 50, 140 70 C 120 60, 80 60, 60 70 Z" fill="#2D1500"/>
+                    <ellipse cx="85" cy="85" rx="5" ry="7" fill="#1E293B"/><ellipse cx="115" cy="85" rx="5" ry="7" fill="#1E293B"/>
+                    <path d="M 90 98 Q 100 108 110 98" stroke="#E11D48" stroke-width="3" fill="transparent"/>
+                    <path d="M 70 125 L 130 125 L 145 190 L 55 190 Z" fill="#2563EB"/>
+                    <circle cx="100" cy="160" r="18" fill="url(#girlOrb)"/>
+                    <defs>
+                        <radialGradient id="girlOrb">
+                            <stop offset="0%" stop-color="#FEF08A"/>
+                            <stop offset="100%" stop-color="#EAB308"/>
+                        </radialGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="glass-panel px-2 py-1 rounded-lg text-[10px] text-amber-300 font-bold text-center mt-1 border-amber-400/30">
+                靜心能量充電 👧
+            </div>
+        </div>
+
+        <!-- CENTER CORE MEMORY ORB TIMER -->
+        <div class="flex-none flex flex-col items-center justify-center my-auto mx-auto">
+            
+            <!-- Central Glowing Orb Pedestal -->
+            <div class="relative w-52 h-52 sm:w-64 sm:h-64 flex items-center justify-center">
+
+                <!-- Breathing Pulsing Ring -->
+                <div id="breathRing" class="breath-pulse absolute inset-0 rounded-full border-2 border-amber-400/50 bg-amber-400/10 pointer-events-none"></div>
+
+                <!-- Orbiting Mini Memory Orbs -->
+                <div class="orbit-spin absolute w-full h-full rounded-full border border-dashed border-white/20 pointer-events-none">
+                    <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-amber-400 border border-white flex items-center justify-center text-[10px] counter-spin shadow-md">😊</div>
+                    <div class="absolute top-1/4 right-0 w-5 h-5 rounded-full bg-sky-400 border border-white flex items-center justify-center text-[9px] counter-spin shadow-md">💧</div>
+                    <div class="absolute bottom-1/4 right-0 w-5 h-5 rounded-full bg-red-500 border border-white flex items-center justify-center text-[9px] counter-spin shadow-md">🔥</div>
+                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-6 h-6 rounded-full bg-teal-400 border border-white flex items-center justify-center text-[10px] counter-spin shadow-md">🧘</div>
+                    <div class="absolute bottom-1/4 left-0 w-5 h-5 rounded-full bg-emerald-400 border border-white flex items-center justify-center text-[9px] counter-spin shadow-md">🤢</div>
+                    <div class="absolute top-1/4 left-0 w-5 h-5 rounded-full bg-purple-400 border border-white flex items-center justify-center text-[9px] counter-spin shadow-md">🔮</div>
+                </div>
+
+                <!-- Main Glowing Core Orb Container -->
+                <div id="coreOrb" class="relative w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-gradient-to-br from-amber-200 via-yellow-500 to-amber-700 p-1 shadow-[0_0_50px_rgba(255,215,0,0.5)] flex items-center justify-center transition-all duration-300">
+                    
+                    <div class="w-full h-full rounded-full bg-slate-950/90 border border-amber-300/50 flex flex-col items-center justify-center relative overflow-hidden">
+                        
+                        <!-- Breathing Text Prompt -->
+                        <div id="breathText" class="text-[10px] sm:text-xs font-bold text-amber-300 mb-0.5 tracking-wider animate-pulse">
+                            ✨ 吸氣... Inhale ✨
+                        </div>
+
+                        <!-- 30s Countdown Number Display -->
+                        <div id="timerDisplay" class="text-4xl sm:text-5xl font-black text-white gold-glow font-display tracking-tight">
+                            30
+                        </div>
+
+                        <div class="text-[9px] text-amber-200/80 font-medium">SECONDS REST</div>
+
+                        <!-- Circular SVG Progress Bar -->
+                        <svg class="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
+                            <circle cx="50%" cy="50%" r="45%" fill="transparent" stroke="rgba(255,255,255,0.1)" stroke-width="5"/>
+                            <circle id="progressCircle" cx="50%" cy="50%" r="45%" fill="transparent" stroke="#FFD700" stroke-width="6" stroke-dasharray="500" stroke-dashoffset="0" stroke-linecap="round" class="transition-all duration-1000 ease-linear"/>
+                        </svg>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Start / Pause Main Action Button -->
+            <button id="startBtn" onclick="toggleTimer()" class="mt-3 py-2 px-6 sm:px-8 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-sm sm:text-base shadow-[0_0_20px_rgba(255,215,0,0.4)] border border-white hover:scale-105 active:scale-95 transition flex items-center gap-2">
+                <i id="btnIcon" class="fa-solid fa-play"></i>
+                <span id="btnText">開始靜心 Rest</span>
+            </button>
+
+        </div>
+
+        <!-- RIGHT MASCOT (Boy Student with Basketball) -->
+        <div class="flex-1 flex flex-col items-center justify-center max-w-[120px] sm:max-w-[160px] float-bob hidden xs:flex">
+            <div class="w-24 h-24 sm:w-32 sm:h-32 relative">
+                <svg class="w-full h-full drop-shadow-[0_8px_16px_rgba(250,204,21,0.4)]" viewBox="0 0 200 200" fill="none">
+                    <path d="M 60 85 C 60 45, 140 45, 140 85 Z" fill="#451A03"/>
+                    <circle cx="100" cy="85" r="38" fill="#FFEDD5"/>
+                    <ellipse cx="85" cy="85" rx="5" ry="6" fill="#0F172A"/><ellipse cx="115" cy="85" rx="5" ry="6" fill="#0F172A"/>
+                    <path d="M 88 98 Q 100 112 112 98" stroke="#EA580C" stroke-width="3.5" stroke-linecap="round" fill="transparent"/>
+                    <path d="M 68 122 L 132 122 L 140 190 L 60 190 Z" fill="#0284C7"/>
+                    <path d="M 88 122 L 112 122 L 118 190 L 82 190 Z" fill="#FACC15"/>
+                    <circle cx="145" cy="155" r="20" fill="#EA580C" stroke="#7C2D12" stroke-width="2"/>
+                </svg>
+            </div>
+            <div class="glass-panel px-2 py-1 rounded-lg text-[10px] text-sky-300 font-bold text-center mt-1 border-sky-400/30">
+                愛不消逝 👦
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER CONTROLS & COMPACT MIND LOCATIONS DRAWER BUTTONS -->
+    <footer class="relative z-10 w-full max-w-4xl mx-auto flex-none space-y-1.5">
+        
+        <!-- Audio Switcher & Mind Locations Quick Trigger Row -->
+        <div class="flex items-center justify-between gap-2">
+            
+            <!-- Synthesized Audio Toggle Button -->
+            <button id="audioBtn" onclick="toggleAudio()" class="glass-panel px-3 py-1.5 rounded-xl border-teal-400/40 text-teal-300 hover:bg-teal-500/20 text-xs font-bold flex items-center gap-2 transition">
+                <i id="audioIcon" class="fa-solid fa-tree"></i>
+                <span id="audioText">🌲 森林鳥鳴雨音 (開啟)</span>
+            </button>
+
+            <!-- Mind Locations Drawer Trigger -->
+            <button onclick="toggleMindDrawer()" class="glass-panel px-3 py-1.5 rounded-xl border-amber-400/40 text-amber-300 hover:bg-amber-500/20 text-xs font-bold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-brain"></i>
+                <span>大腦 6 大區域</span>
+            </button>
+        </div>
+
+        <!-- School Footer Copyright -->
+        <div class="text-center text-[10px] text-indigo-300/60 font-medium">
+            深水埔街坊福利會小學 SSPSK · Rest 腦電波復元計時器
+        </div>
+    </footer>
+
+    <!-- OVERLAY 1: COMPACT MIND LOCATIONS POPUP DRAWER -->
+    <div id="mindDrawer" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-3">
+        <div class="glass-panel rounded-2xl p-4 max-w-md w-full border-amber-400/40 relative">
+            <div class="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                <div class="font-bold text-amber-300 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-map-location-dot"></i> 《腦筋急轉彎》大腦 6 大區域
+                </div>
+                <button onclick="toggleMindDrawer()" class="text-gray-400 hover:text-white text-base">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- 6 Grid Location Cards -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="p-2 rounded-xl bg-yellow-500/10 border border-yellow-400/30">
+                    <div class="font-bold text-yellow-300">🎛️ 大腦總部</div>
+                    <div class="text-[10px] text-gray-300 mt-0.5">情緒角色操作控制台</div>
+                </div>
+                <div class="p-2 rounded-xl bg-sky-500/10 border border-sky-400/30">
+                    <div class="font-bold text-sky-300">🏰 長期記憶庫</div>
+                    <div class="text-[10px] text-gray-300 mt-0.5">回憶管線與記憶迷宮</div>
+                </div>
+                <div class="p-2 rounded-xl bg-indigo-500/10 border border-indigo-400/30">
+                    <div class="font-bold text-indigo-300">🚂 思考火車</div>
+                    <div class="text-[10px] text-gray-300 mt-0.5">運送想法與事實交通車</div>
+                </div>
+                <div class="p-2 rounded-xl bg-purple-500/10 border border-purple-400/30">
+                    <div class="font-bold text-purple-300">🎬 夢境製片廠</div>
+                    <div class="text-[10px] text-gray-300 mt-0.5">編導並播映夜間夢境</div>
+                </div>
+                <div class="p-2 rounded-xl bg-pink-500/10 border border-pink-400/30">
+                    <div class="font-bold text-pink-300">📐 抽象思考區</div>
+                    <div class="text-[10px] text-gray-300 mt-0.5">將複雜概念簡化與解構</div>
+                </div>
+                <div class="p-2 rounded-xl bg-red-500/10 border border-red-400/30">
+                    <div class="font-bold text-red-300">🗑️ 記憶垃圾場</div>
+                    <div class="text-[10px] text-gray-300 mt-0.5">消融被遺忘負面記憶</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY 2: COMPLETION REVEAL MODAL -->
+    <div id="completionModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-3">
+        <div class="glass-modal rounded-3xl p-5 max-w-sm w-full text-center relative border-amber-400/80">
+            
+            <div class="w-14 h-14 mx-auto -mt-10 bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full p-0.5 shadow-lg flex items-center justify-center animate-bounce">
+                <div class="w-full h-full bg-slate-950 rounded-full flex items-center justify-center text-2xl">🏆</div>
+            </div>
+
+            <h2 class="text-xl font-black text-amber-300 gold-glow mt-2">🎉 恭喜完成 Rest 靜心體驗！</h2>
+            <p class="text-xs text-amber-100/90 mt-1.5 leading-relaxed">
+                你們做得很好！成功為記憶寶庫注入了『休息』的正向能量！
+            </p>
+
+            <!-- Password Box -->
+            <div class="my-4 p-3 rounded-2xl bg-amber-500/20 border border-amber-400/60 shadow-inner">
+                <div class="text-[10px] font-bold text-amber-200">核心解密密碼</div>
+                <div class="text-2xl font-black text-amber-300 tracking-wider mt-0.5 gold-glow">
+                    解密密碼：8
+                </div>
+            </div>
+
+            <div class="text-xs font-black text-amber-300 mb-4">
+                ✨ 「記憶定格，愛不消逝！」 ✨
+            </div>
+
+            <button onclick="closeCompletionModal()" class="w-full py-2.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 font-black text-sm shadow-md hover:scale-105 transition">
+                重新開始靜心 Rest Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* Application State Variables */
+        let timerSeconds = 30;
+        let timerInterval = null;
+        let isTimerRunning = false;
+        let isAudioPlaying = false;
+        let audioCtx = null;
+        let mainGainNode = null;
+        let rainNode = null;
+        let birdInterval = null;
+
+        /* Canvas Particle Starfield Engine */
+        const canvas = document.getElementById('starsCanvas');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            stars = [];
+            for (let i = 0; i < 40; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 1.5 + 0.5,
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.02 + 0.005
+                });
+            }
+        }
+
+        function drawStars() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(s => {
+                s.alpha += s.speed;
+                if (s.alpha > 1 || s.alpha < 0.2) s.speed = -s.speed;
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(s.alpha)})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            requestAnimationFrame(drawStars);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        drawStars();
+
+        /* Countdown Timer Engine */
+        function toggleTimer() {
+            if (isTimerRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            if (timerSeconds <= 0) timerSeconds = 30;
+            isTimerRunning = true;
+            document.getElementById('btnText').innerText = "暫停 Pause";
+            document.getElementById('btnIcon').className = "fa-solid fa-pause";
+
+            if (!isAudioPlaying) toggleAudio();
+
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                updateTimerDisplay();
+
+                // Breathing guidance toggle
+                const breathText = document.getElementById('breathText');
+                if (timerSeconds % 8 >= 4) {
+                    breathText.innerText = "✨ 呼氣... Exhale ✨";
+                } else {
+                    breathText.innerText = "✨ 吸氣... Inhale ✨";
+                }
+
+                if (timerSeconds <= 0) {
+                    finishTimer();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+            document.getElementById('btnText').innerText = "繼續 Resume";
+            document.getElementById('btnIcon').className = "fa-solid fa-play";
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timerDisplay').innerText = timerSeconds;
+            const progressCircle = document.getElementById('progressCircle');
+            const totalDash = 500;
+            const offset = totalDash - (timerSeconds / 30) * totalDash;
+            progressCircle.style.strokeDashoffset = offset;
+        }
+
+        function finishTimer() {
+            pauseTimer();
+            playCompletionChime();
+            showCompletionModal();
+            triggerConfetti();
+        }
+
+        /* Web Audio API Sound Synth Engine */
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                mainGainNode = audioCtx.createGain();
+                mainGainNode.gain.value = 0.2;
+                mainGainNode.connect(audioCtx.destination);
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleAudio() {
+            initAudio();
+            isAudioPlaying = !isAudioPlaying;
+            const btn = document.getElementById('audioBtn');
+            const icon = document.getElementById('audioIcon');
+            const text = document.getElementById('audioText');
+
+            if (isAudioPlaying) {
+                btn.classList.add('bg-teal-500/30');
+                icon.className = 'fa-solid fa-tree';
+                text.innerText = "🌲 森林鳥鳴雨音 (開啟)";
+                startRainAndBirds();
+            } else {
+                btn.classList.remove('bg-teal-500/30');
+                icon.className = 'fa-solid fa-volume-xmark';
+                text.innerText = "🌲 自然音效 (靜音)";
+                stopRainAndBirds();
+            }
+        }
+
+        function startRainAndBirds() {
+            stopRainAndBirds();
+            // Pink Noise Rain
+            const bufferSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+            for (let i = 0; i < bufferSize; i++) {
+                let white = Math.random() * 2 - 1;
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                b3 = 0.86650 * b3 + white * 0.3104856;
+                b4 = 0.55000 * b4 + white * 0.5329522;
+                b5 = -0.7616 * b5 - white * 0.0168980;
+                output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.02;
+                b6 = white * 0.115926;
+            }
+            rainNode = audioCtx.createBufferSource();
+            rainNode.buffer = noiseBuffer;
+            rainNode.loop = true;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 800;
+            rainNode.connect(filter);
+            filter.connect(mainGainNode);
+            rainNode.start();
+
+            birdInterval = setInterval(triggerBirdTweet, 3200);
+        }
+
+        function stopRainAndBirds() {
+            if (rainNode) {
+                try { rainNode.stop(); } catch(e){}
+                rainNode = null;
+            }
+            if (birdInterval) {
+                clearInterval(birdInterval);
+                birdInterval = null;
+            }
+        }
+
+        function triggerBirdTweet() {
+            if (!audioCtx || !isAudioPlaying) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            const now = audioCtx.currentTime;
+            osc.frequency.setValueAtTime(2200, now);
+            osc.frequency.exponentialRampToValueAtTime(3200, now + 0.1);
+            osc.frequency.exponentialRampToValueAtTime(1900, now + 0.2);
+            gain.gain.setValueAtTime(0.01, now);
+            gain.gain.linearRampToValueAtTime(0.06, now + 0.05);
+            gain.gain.linearRampToValueAtTime(0, now + 0.2);
+            osc.connect(gain);
+            gain.connect(mainGainNode);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+
+        function playCompletionChime() {
+            if (!audioCtx) initAudio();
+            const freqs = [523.25, 659.25, 783.99, 1046.50];
+            freqs.forEach((f, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = f;
+                const now = audioCtx.currentTime + i * 0.1;
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 2);
+                osc.connect(gain);
+                gain.connect(mainGainNode);
+                osc.start(now);
+                osc.stop(now + 2);
+            });
+        }
+
+        /* Modal & Drawer Functions */
+        function toggleMindDrawer() {
+            const drawer = document.getElementById('mindDrawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        function showCompletionModal() {
+            document.getElementById('completionModal').classList.remove('hidden');
+        }
+
+        function closeCompletionModal() {
+            document.getElementById('completionModal').classList.add('hidden');
+            timerSeconds = 30;
+            updateTimerDisplay();
+        }
+
+        function triggerConfetti() {
+            if (window.confetti) {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
